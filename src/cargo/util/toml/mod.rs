@@ -442,11 +442,20 @@ impl ser::Serialize for TomlOptLevel {
     }
 }
 
+// TODO: is this ever used anywhere? can we delete it?
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(untagged, expecting = "expected a boolean or an integer")]
 pub enum U32OrBool {
     U32(u32),
     Bool(bool),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(untagged, expecting = "expected a boolean, integer, or string")]
+pub enum U32OrBoolOrString {
+    U32(u32),
+    Bool(bool),
+    String(String),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, Eq, PartialEq)]
@@ -456,7 +465,7 @@ pub struct TomlProfile {
     pub lto: Option<StringOrBool>,
     pub codegen_backend: Option<InternedString>,
     pub codegen_units: Option<u32>,
-    pub debug: Option<U32OrBool>,
+    pub debug: Option<U32OrBoolOrString>,
     pub split_debuginfo: Option<String>,
     pub debug_assertions: Option<bool>,
     pub rpath: Option<bool>,

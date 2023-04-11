@@ -26,7 +26,7 @@ use crate::core::dependency::Artifact;
 use crate::core::resolver::features::FeaturesFor;
 use crate::core::{PackageId, PackageIdSpec, Resolve, Shell, Target, Workspace};
 use crate::util::interning::InternedString;
-use crate::util::toml::{ProfilePackageSpec, StringOrBool, TomlProfile, TomlProfiles, U32OrBool};
+use crate::util::toml::{ProfilePackageSpec, StringOrBool, TomlProfile, TomlProfiles, U32OrBoolOrString};
 use crate::util::{closest_msg, config, CargoResult, Config};
 use anyhow::{bail, Context as _};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -276,15 +276,13 @@ impl Profiles {
         // platform which has a stable `-Csplit-debuginfo` option for rustc,
         // and it's typically much faster than running `dsymutil` on all builds
         // in incremental cases.
-        if let Some(debug) = profile.debuginfo.to_option() {
-            if profile.split_debuginfo.is_none() && debug > 0 {
-                let target = match &kind {
-                    CompileKind::Host => self.rustc_host.as_str(),
-                    CompileKind::Target(target) => target.short_name(),
-                };
-                if target.contains("-apple-") {
-                    profile.split_debuginfo = Some(InternedString::new("unpacked"));
-                }
+        if profile.debuginfo.is_turned_on() && profile.split_debuginfo.is_none() {
+            let target = match &kind {
+                CompileKind::Host => self.rustc_host.as_str(),
+                CompileKind::Target(target) => target.short_name(),
+            };
+            if target.contains("-apple-") {
+                profile.split_debuginfo = Some(InternedString::new("unpacked"));
             }
         }
 
@@ -529,9 +527,10 @@ fn merge_profile(profile: &mut Profile, toml: &TomlProfile) {
         profile.codegen_units = toml.codegen_units;
     }
     match toml.debug {
-        Some(U32OrBool::U32(debug)) => profile.debuginfo = DebugInfo::Explicit(debug),
-        Some(U32OrBool::Bool(true)) => profile.debuginfo = DebugInfo::Explicit(2),
-        Some(U32OrBool::Bool(false)) => profile.debuginfo = DebugInfo::None,
+        Some(U32OrBoolOrString::U32(debug)) => profile.debuginfo = DebugInfo::Explicit(debug.to_string().into()),
+        Some(U32OrBoolOrString::Bool(true)) => profile.debuginfo = DebugInfo::Explicit("2".into()),
+        Some(U32OrBoolOrString::Bool(false)) => profile.debuginfo = DebugInfo::None,
+        Some(U32OrBoolOrString::String(ref s)) => profile.debuginfo = DebugInfo::Explicit(s.into()),
         None => {}
     }
     if let Some(debug_assertions) = toml.debug_assertions {
@@ -683,7 +682,7 @@ impl Profile {
         Profile {
             name: InternedString::new("dev"),
             root: ProfileRoot::Debug,
-            debuginfo: DebugInfo::Explicit(2),
+            debuginfo: DebugInfo::Explicit("2".into()),
             debug_assertions: true,
             overflow_checks: true,
             incremental: true,
@@ -743,7 +742,7 @@ pub enum DebugInfo {
     /// No debuginfo level was set.
     None,
     /// A debuginfo level that is explicitly set, by a profile or a user.
-    Explicit(u32),
+    Explicit(InternedString),
     /// For internal purposes: a deferred debuginfo level that can be optimized
     /// away, but has this value otherwise.
     ///
@@ -753,22 +752,25 @@ pub enum DebugInfo {
     /// faster to build (see [DebugInfo::weaken]).
     ///
     /// In all other situations, this level value will be the one to use.
-    Deferred(u32),
+    Deferred(InternedString),
 }
 
 impl DebugInfo {
     /// The main way to interact with this debuginfo level, turning it into an Option.
-    pub fn to_option(&self) -> Option<u32> {
+    pub fn to_option(self) -> Option<InternedString> {
         match self {
             DebugInfo::None => None,
-            DebugInfo::Explicit(v) | DebugInfo::Deferred(v) => Some(*v),
+            DebugInfo::Explicit(v) | DebugInfo::Deferred(v) => Some(v),
         }
     }
 
     /// Returns true if the debuginfo level is high enough (at least 1). Helper
     /// for a common operation on the usual `Option` representation.
     pub(crate) fn is_turned_on(&self) -> bool {
-        self.to_option().unwrap_or(0) != 0
+        match self.to_option().as_deref() {
+            None | Some("0") => false,
+            Some(_) => true,
+        }
     }
 
     pub(crate) fn is_deferred(&self) -> bool {

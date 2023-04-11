@@ -55,10 +55,17 @@ impl<'a> Message for Artifact<'a> {
 #[derive(Serialize)]
 pub struct ArtifactProfile {
     pub opt_level: &'static str,
-    pub debuginfo: Option<u32>,
+    pub debuginfo: Option<ArtifactDebuginfo>,
     pub debug_assertions: bool,
     pub overflow_checks: bool,
     pub test: bool,
+}
+
+/// Internally this is just a string, but keep using 0/1/2 as integers for compatibility.
+#[derive(Serialize)]
+pub enum ArtifactDebuginfo {
+    Int(u32),
+    Named(String),
 }
 
 #[derive(Serialize)]

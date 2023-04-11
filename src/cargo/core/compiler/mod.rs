@@ -603,9 +603,15 @@ fn link_targets(cx: &mut Context<'_, '_>, unit: &Unit, fresh: bool) -> CargoResu
         }
 
         if json_messages {
+            let debuginfo = profile.debuginfo.to_option().map(|d| {
+                match d.parse() {
+                    Ok(n) => machine_message::ArtifactDebuginfo::Int(n),
+                    Err(_) => machine_message::ArtifactDebuginfo::Named(d.to_string()),
+                }
+            });
             let art_profile = machine_message::ArtifactProfile {
                 opt_level: profile.opt_level.as_str(),
-                debuginfo: profile.debuginfo.to_option(),
+                debuginfo,
                 debug_assertions: profile.debug_assertions,
                 overflow_checks: profile.overflow_checks,
                 test: unit_mode.is_any_test(),
