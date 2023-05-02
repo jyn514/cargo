@@ -313,10 +313,14 @@ impl<'a, 'cfg> Context<'a, 'cfg> {
         let dest = self.bcx.profiles.get_dir_name();
         let host_layout = Layout::new(self.bcx.ws, None, &dest)?;
         let mut targets = HashMap::new();
+        let mut std_targets = HashMap::new();
         for kind in self.bcx.all_kinds.iter() {
             if let CompileKind::Target(target) = *kind {
                 let layout = Layout::new(self.bcx.ws, Some(target), &dest)?;
                 targets.insert(target, layout);
+                if self.bcx.config.cli_unstable().build_std.is_some() {
+                    std_targets.insert(target, Layout::new_std(self.bcx.ws, target, &dest)?);
+                }
             }
         }
         self.primary_packages
@@ -327,7 +331,7 @@ impl<'a, 'cfg> Context<'a, 'cfg> {
 
         self.record_units_requiring_metadata();
 
-        let files = CompilationFiles::new(self, host_layout, targets);
+        let files = CompilationFiles::new(self, host_layout, targets, std_targets);
         self.files = Some(files);
         Ok(())
     }
@@ -337,19 +341,21 @@ impl<'a, 'cfg> Context<'a, 'cfg> {
     pub fn prepare(&mut self) -> CargoResult<()> {
         let _p = profile::start("preparing layout");
 
-        self.files
-            .as_mut()
-            .unwrap()
-            .host
+        let files = self.files.as_mut().unwrap();
+        files.host
             .prepare()
             .with_context(|| "couldn't prepare build directories")?;
-        for target in self.files.as_mut().unwrap().target.values_mut() {
+        for target in files.target.values_mut() {
             target
                 .prepare()
                 .with_context(|| "couldn't prepare build directories")?;
         }
+        for std_target in files.std_targets.values_mut() {
+            std_target
+                .prepare()
+                .with_context(|| "couldn't prepare build directories")?;
+        }
 
-        let files = self.files.as_ref().unwrap();
         for &kind in self.bcx.all_kinds.iter() {
             let layout = files.layout(kind);
             self.compilation

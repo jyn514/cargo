@@ -103,7 +103,7 @@
 
 use crate::core::compiler::CompileTarget;
 use crate::core::Workspace;
-use crate::util::{CargoResult, FileLock};
+use crate::util::{CargoResult, FileLock, Filesystem};
 use cargo_util::paths;
 use std::path::{Path, PathBuf};
 
@@ -149,7 +149,26 @@ impl Layout {
         target: Option<CompileTarget>,
         dest: &str,
     ) -> CargoResult<Layout> {
-        let mut root = ws.target_dir();
+        Self::new_inner(ws, target, dest, ws.target_dir())
+    }
+
+    /// Calculate the paths for build output for standard library units.
+    ///
+    /// See [`new`](Self::new) for more information.
+    pub fn new_std(
+        ws: &Workspace<'_>,
+        target: CompileTarget,
+        dest: &str,
+    ) -> CargoResult<Layout> {
+        Self::new_inner(ws, Some(target), dest, ws.config().standard_lib_cache_path())
+    }
+
+    fn new_inner(
+        ws: &Workspace<'_>,
+        target: Option<CompileTarget>,
+        dest: &str,
+        mut root: Filesystem,
+    ) -> CargoResult<Layout> {
         if let Some(target) = target {
             root.push(target.short_name());
         }

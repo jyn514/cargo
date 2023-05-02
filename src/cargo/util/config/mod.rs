@@ -353,6 +353,11 @@ impl Config {
         self.home_path.join("git")
     }
 
+    /// Gets the Cargo standard lib unit cache directory (`<cargo_home>/build-std-target`).
+    pub fn standard_lib_cache_path(&self) -> Filesystem {
+        self.home_path.join("build-std-target")
+    }
+
     /// Gets the Cargo base directory for all registry information (`<cargo_home>/registry`).
     pub fn registry_base_path(&self) -> Filesystem {
         self.home_path.join("registry")

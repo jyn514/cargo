@@ -101,6 +101,8 @@ pub struct CompilationFiles<'a, 'cfg> {
     pub(super) host: Layout,
     /// The target directory layout for the target (if different from then host).
     pub(super) target: HashMap<CompileTarget, Layout>,
+    /// The target directory layout for the standard library crates, if `-Z build-std` was passed.
+    pub(super) std_targets: HashMap<CompileTarget, Layout>,
     /// Additional directory to include a copy of the outputs.
     export_dir: Option<PathBuf>,
     /// The root targets requested by the user on the command line (does not
@@ -142,6 +144,7 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
         cx: &Context<'a, 'cfg>,
         host: Layout,
         target: HashMap<CompileTarget, Layout>,
+        std_targets: HashMap<CompileTarget, Layout>,
     ) -> CompilationFiles<'a, 'cfg> {
         let mut metas = HashMap::new();
         for unit in &cx.bcx.roots {
@@ -156,6 +159,7 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
             ws: cx.bcx.ws,
             host,
             target,
+            std_targets,
             export_dir: cx.bcx.build_config.export_dir.clone(),
             roots: cx.bcx.roots.clone(),
             metas,
