@@ -1374,7 +1374,6 @@ fn calculate_normal(cx: &mut Context<'_, '_>, unit: &Unit) -> CargoResult<Finger
     };
 
     // Afterwards calculate our own fingerprint information.
-    let target_root = target_root(cx);
     let local = if unit.mode.is_doc() || unit.mode.is_doc_scrape() {
         // rustdoc does not have dep-info files.
         let fingerprint = pkg_fingerprint(cx.bcx, &unit.pkg).with_context(|| {
@@ -1386,7 +1385,14 @@ fn calculate_normal(cx: &mut Context<'_, '_>, unit: &Unit) -> CargoResult<Finger
         vec![LocalFingerprint::Precalculated(fingerprint)]
     } else {
         let dep_info = dep_info_loc(cx, unit);
-        let dep_info = dep_info.strip_prefix(&target_root).unwrap().to_path_buf();
+        let root = if unit.is_std {
+            cx.bcx.config.standard_lib_cache_path().into_path_unlocked()
+        } else {
+            target_root(cx)
+        };
+        let dep_info = dep_info.strip_prefix(&root).unwrap_or_else(|_| {
+            panic!("{} was not a prefix of {}", root.display(), dep_info.display())
+        }).to_path_buf();
         vec![LocalFingerprint::CheckDepInfo { dep_info }]
     };
 

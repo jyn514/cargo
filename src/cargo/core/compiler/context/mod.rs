@@ -357,13 +357,15 @@ impl<'a, 'cfg> Context<'a, 'cfg> {
         }
 
         for &kind in self.bcx.all_kinds.iter() {
-            let layout = files.layout(kind);
-            self.compilation
-                .root_output
-                .insert(kind, layout.dest().to_path_buf());
-            self.compilation
-                .deps_output
-                .insert(kind, layout.deps().to_path_buf());
+            for is_std in [true, false] {
+                let layout = files.layout_from_parts(kind, is_std);
+                self.compilation
+                    .root_output
+                    .insert(kind, layout.dest().to_path_buf());
+                self.compilation
+                    .deps_output
+                    .insert(kind, layout.deps().to_path_buf());
+            }
         }
         Ok(())
     }

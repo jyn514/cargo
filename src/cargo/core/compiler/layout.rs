@@ -160,7 +160,10 @@ impl Layout {
         target: CompileTarget,
         dest: &str,
     ) -> CargoResult<Layout> {
-        Self::new_inner(ws, Some(target), dest, ws.config().standard_lib_cache_path())
+        let cache_path = ws.config().standard_lib_cache_path();
+        let layout = Self::new_inner(ws, Some(target), dest, cache_path.clone())?;
+        assert!(layout.fingerprint().starts_with(cache_path.as_path_unlocked()));
+        Ok(layout)
     }
 
     fn new_inner(

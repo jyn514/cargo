@@ -167,10 +167,15 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
         }
     }
 
-    /// Returns the appropriate directory layout for either a plugin or not.
-    pub fn layout(&self, kind: CompileKind) -> &Layout {
+    /// Returns the appropriate directory layout for the [`Unit`].
+    pub fn layout(&self, unit: &Unit) -> &Layout {
+        self.layout_from_parts(unit.kind, unit.is_std)
+    }
+
+    pub fn layout_from_parts(&self, kind: CompileKind, is_std: bool) -> &Layout {
         match kind {
             CompileKind::Host => &self.host,
+            CompileKind::Target(target) if is_std => &self.std_targets[&target],
             CompileKind::Target(target) => &self.target[&target],
         }
     }
@@ -203,13 +208,13 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
         // Docscrape units need to have doc/ set as the out_dir so sources for reverse-dependencies
         // will be put into doc/ and not into deps/ where the *.examples files are stored.
         if unit.mode.is_doc() || unit.mode.is_doc_scrape() {
-            self.layout(unit.kind).doc().to_path_buf()
+            self.layout(unit).doc().to_path_buf()
         } else if unit.mode.is_doc_test() {
             panic!("doc tests do not have an out dir");
         } else if unit.target.is_custom_build() {
             self.build_script_dir(unit)
         } else if unit.target.is_example() {
-            self.layout(unit.kind).examples().to_path_buf()
+            self.layout(unit).examples().to_path_buf()
         } else if unit.artifact.is_true() {
             self.artifact_dir(unit)
         } else {
@@ -254,13 +259,13 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
     /// Returns the directories where Rust crate dependencies are found for the
     /// specified unit.
     pub fn deps_dir(&self, unit: &Unit) -> &Path {
-        self.layout(unit.kind).deps()
+        self.layout(unit).deps()
     }
 
     /// Directory where the fingerprint for the given unit should go.
     pub fn fingerprint_dir(&self, unit: &Unit) -> PathBuf {
         let dir = self.pkg_dir(unit);
-        self.layout(unit.kind).fingerprint().join(dir)
+        self.layout(unit).fingerprint().join(dir)
     }
 
     /// Returns the path for a file in the fingerprint directory.
@@ -295,7 +300,7 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
         assert!(!unit.mode.is_run_custom_build());
         assert!(self.metas.contains_key(unit));
         let dir = self.pkg_dir(unit);
-        self.layout(CompileKind::Host).build().join(dir)
+        self.layout(unit).build().join(dir)
     }
 
     /// Returns the directory for compiled artifacts files.
@@ -319,7 +324,7 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
                 invalid
             ),
         };
-        self.layout(unit.kind).artifact().join(dir).join(kind)
+        self.layout(unit).artifact().join(dir).join(kind)
     }
 
     /// Returns the directory where information about running a build script
@@ -329,7 +334,7 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
         assert!(unit.target.is_custom_build());
         assert!(unit.mode.is_run_custom_build());
         let dir = self.pkg_dir(unit);
-        self.layout(unit.kind).build().join(dir)
+        self.layout(unit).build().join(dir)
     }
 
     /// Returns the "OUT_DIR" directory for running a build script.
@@ -344,11 +349,12 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
     pub fn bin_link_for_target(
         &self,
         target: &Target,
-        kind: CompileKind,
+        unit: &Unit,
         bcx: &BuildContext<'_, '_>,
     ) -> CargoResult<PathBuf> {
         assert!(target.is_bin());
-        let dest = self.layout(kind).dest();
+        let dest = self.layout(unit).dest();
+        let kind = unit.kind;
         let info = bcx.target_data.info(kind);
         let (file_types, _) = info
             .rustc_outputs(
@@ -415,11 +421,11 @@ impl<'a, 'cfg: 'a> CompilationFiles<'a, 'cfg> {
         let filename = file_type.uplift_filename(&unit.target);
         let uplift_path = if unit.target.is_example() {
             // Examples live in their own little world.
-            self.layout(unit.kind).examples().join(filename)
+            self.layout(unit).examples().join(filename)
         } else if unit.target.is_custom_build() {
             self.build_script_dir(unit).join(filename)
         } else {
-            self.layout(unit.kind).dest().join(filename)
+            self.layout(unit).dest().join(filename)
         };
         if from_path == uplift_path {
             // This can happen with things like examples that reside in the

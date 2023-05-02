@@ -1084,7 +1084,10 @@ impl RustDocFingerprint {
         cx.bcx
             .all_kinds
             .iter()
-            .map(|kind| cx.files().layout(*kind).doc())
+            .flat_map(|&kind| [
+                cx.files().layout_from_parts(kind, true).doc(),
+                cx.files().layout_from_parts(kind, false).doc(),
+            ])
             .filter(|path| path.exists())
             .try_for_each(|path| clean_doc(path))?;
         write_fingerprint()?;

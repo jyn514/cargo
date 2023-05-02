@@ -724,7 +724,7 @@ fn prepare_rustc(
     }
 
     if unit.target.is_test() || unit.target.is_bench() {
-        let tmp = cx.files().layout(unit.kind).prepare_tmp()?;
+        let tmp = cx.files().layout(unit).prepare_tmp()?;
         base.env("CARGO_TARGET_TMPDIR", tmp.display().to_string());
     }
 
@@ -1154,7 +1154,7 @@ fn build_base_args(
         bcx.linker(unit.kind).as_ref().map(|s| s.as_ref()),
     );
     if incremental {
-        let dir = cx.files().layout(unit.kind).incremental().as_os_str();
+        let dir = cx.files().layout(unit).incremental().as_os_str();
         opt(cmd, "-C", "incremental=", Some(dir));
     }
 
@@ -1184,7 +1184,7 @@ fn build_base_args(
         {
             let exe_path = cx
                 .files()
-                .bin_link_for_target(bin_target, unit.kind, cx.bcx)?;
+                .bin_link_for_target(bin_target, unit, cx.bcx)?;
             let name = bin_target
                 .binary_filename()
                 .unwrap_or(bin_target.name().to_string());
